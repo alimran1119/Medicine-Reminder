@@ -1,0 +1,1 @@
+# dependencies\node_modules/\n\n# builds\nbuild/\ndist/\n.next/\nout/\n\n# logs\n*.log\n\n# env & secrets\n.env\n.env.*\n

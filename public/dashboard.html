@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Medicine Reminder — Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+      <p id="msg" class="muted mt-12"></p>
+
+      <div class="mt-12">
+        <button class="secondary" onclick="enablePush()">Enable Notifications</button>
+        <button onclick="sendTestPush()">Send Test Notification</button>
+        <span id="pushMsg" class="muted"></span>
+      </div>
+    </div>
+
+    <!-- Health tracking: BP line chart + Sugar donut -->
+    <div class="card">
+      <h2>Health Tracking</h2>
+
+      <div class="row">
+        <!-- BP inputs -->
+        <div class="col-6">
+          <h3>Blood Pressure</h3>
+          <div class="form-row">
+            <div><label>Systolic</label><input id="bpSys" type="number" placeholder="e.g., 120"/></div>
+            <div><label>Diastolic</label><input id="bpDia" type="number" placeholder="e.g., 80"/></div>
+          </div>
+          <div class="form-row mt-12">
+            <div><label>When</label><input id="bpAt" type="datetime-local"/></div>
+            <div><label>&nbsp;</label><button onclick="saveBP()">Save BP</button></div>
+          </div>
+
+          <div class="mt-12">
+            <canvas id="bpChart" width="600" height="240" style="width:100%; max-width:100%;"></canvas>
+            <p class="muted">Line chart: systolic (top) & diastolic (bottom), latest first.</p>
+          </div>
+        </div>
+
+        <!-- Sugar inputs + donut -->
+        <div class="col-6">
+          <h3>Blood Sugar</h3>
+          <div class="form-row">
+            <div><label>Sugar (mg/dL)</label><input id="sugarVal" type="number" placeholder="e.g., 110"/></div>
+            <div><label>When</label><input id="sugarAt" type="datetime-local"/></div>
+            <div><label>&nbsp;</label><button onclick="saveSugar()">Save Sugar</button></div>
+          </div>
+
+          <div class="mt-12" style="display:flex; align-items:center; gap:16px;">
+            <svg id="sugarDonut" width="180" height="180" viewBox="0 0 180 180">
+              <!-- Background circle -->
+              <circle cx="90" cy="90" r="70" stroke="rgba(255,255,255,.2)" stroke-width="18" fill="none"/>
+              <!-- Value arc -->
+              <circle id="sugarArc" cx="90" cy="90" r="70" stroke="currentColor" stroke-width="18" fill="none"
+                      stroke-linecap="round" transform="rotate(-90 90 90)"
+                      stroke-dasharray="0 440"/>
+              <!-- Center text -->
+              <text id="sugarText" x="90" y="90" text-anchor="middle" dominant-baseline="middle" font-size="22" fill="currentColor">--</text>
+            </svg>
+            <div>
+              <div class="badge">Latest sugar</div>
+              <div id="sugarInfo" style="font-size:28px; font-weight:800; margin-top:6px;">--</div>
+              <div class="muted" id="sugarWhen">—</div>
+            </div>
+          </div>
+          <p class="muted">Donut shows latest mg/dL (scaled 60–240 mg/dL).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reminders list -->
+    <div class="card">
+      <h2>My Reminders</h2>
+      <div id="list" class="list"></div>
+    </div>
+  </div>
+
+  <footer>© Med Reminder</footer>
+
+  <script src="/push.js"></script>
+  <script>
+    // --- Notifications (reused) ---
+    async function enablePush(){
+      try { await askNotificationPermission(); pushMsg.textContent = 'Notifications enabled ✔'; }
+      catch(e){ pushMsg.textContent = e.message; }
+    }
+    async function sendTestPush(){
+      try {
+        await fetch('/api/notify/test', { method:'POST', headers:{ 'Authorization':'Bearer '+App.token(), 'Content-Type':'application/json' } });
+        pushMsg.textContent = 'Test notification sent (check your notifications)';
+      } catch (e) {
+        pushMsg.textContent = 'Failed to send test: ' + e.message;
+      }
+    }
+
+    // --- Reminders CRUD (updated addMed) ---
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!App.token()) { location.href = '/index.html'; return; }
+      loadReminders();
+      loadHealth();
+    });
+
+    async function addMed(){
+      const btn = document.getElementById('addBtn');
+      const msg = document.getElementById('msg');
+      const name = document.getElementById('name').value.trim();
+      const dosage = document.getElementById('dosage').value.trim();
+      const dateVal = document.getElementById('date').value;
+      const timeVal = document.getElementById('time').value;
+      const repeatDays = Number(document.getElementById('repeat').value || 0);
+      msg.textContent = '';
+      if(!name){ msg.textContent = 'Please enter a medicine name.'; return; }
+      if(!dateVal){ msg.textContent = 'Please select a date.'; return; }
+      if(!timeVal){ msg.textContent = 'Please select a time.'; return; }
+
+      // Combine date and time into ISO string
+      let nextAt;
+      try {
+        nextAt = new Date(dateVal + 'T' + timeVal).toISOString();
+      } catch {
+        msg.textContent = 'Invalid date/time.';
+        return;
+      }
+
+      btn.disabled = true; btn.textContent = 'Adding...';
+      try{
+        await App.api('/api/meds', { method:'POST', body: JSON.stringify({ name, dosage, nextAt, repeatDays }) });
+        document.getElementById('name').value='';
+        document.getElementById('dosage').value='';
+        document.getElementById('date').value='';
+        document.getElementById('time').value='';
+        document.getElementById('repeat').value='0';
+        msg.textContent = 'Reminder added ✔';
+        loadReminders();
+      }catch(e){ msg.textContent='Failed to add: '+e.message; }
+      finally{ btn.disabled=false; btn.textContent='Add'; }
+    }
+
+    async function loadReminders(){
+      const list = document.getElementById('list');
+      list.innerHTML = '<p class="muted">Loading…</p>';
+      try{
+        const meds = await App.api('/api/meds');
+        list.innerHTML = '';
+        meds.forEach(m => {
+          const div = document.createElement('div');
+          div.className='item';
+          const next = m.nextAt ? new Date(m.nextAt) : null;
+          div.innerHTML = `
+            <div class="title">${escapeHtml(m.name||'')}</div>
+            <div class="badge">${escapeHtml(m.dosage||'')}</div>
+            <div class="mt-8">Next: <strong>${next ? next.toLocaleString() : '—'}</strong></div>
+            <div>Repeat: ${m.repeatDays>0 ? (m.repeatDays+' day(s)') : 'One-time'}</div>
+            <div class="mt-12"><button class="danger" onclick="delRem('${m._id}')">Delete</button></div>`;
+          list.appendChild(div);
+        });
+        if(meds.length===0){ list.innerHTML='<p class="muted">No reminders yet. Add one above.</p>'; }
+      }catch(e){ list.innerHTML='<p class="muted">Error: '+e.message+'</p>'; }
+    }
+
+    async function delRem(id){
+      try{ await App.api('/api/meds/'+id, { method:'DELETE' }); loadReminders(); }
+      catch(e){ alert('Delete failed: '+e.message); }
+    }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    // --- Health: save & load ---
+    async function saveBP(){
+      const systolic = Number(document.getElementById('bpSys').value);
+      const diastolic = Number(document.getElementById('bpDia').value);
+      const when = document.getElementById('bpAt').value;
+      if(!systolic || !diastolic || !when){ alert('Enter systolic, diastolic, and time'); return; }
+      await App.api('/api/metrics', {
+        method:'POST',
+        body: JSON.stringify({ kind:'bp', systolic, diastolic, readingAt: new Date(when).toISOString() })
+      });
+      document.getElementById('bpSys').value=''; document.getElementById('bpDia').value=''; document.getElementById('bpAt').value='';
+      await loadHealth();
+    }
+
+    async function saveSugar(){
+      const sugar = Number(document.getElementById('sugarVal').value);
+      const when = document.getElementById('sugarAt').value;
+      if(!sugar || !when){ alert('Enter sugar value and time'); return; }
+      await App.api('/api/metrics', {
+        method:'POST',
+        body: JSON.stringify({ kind:'sugar', sugar, readingAt: new Date(when).toISOString() })
+      });
+      document.getElementById('sugarVal').value=''; document.getElementById('sugarAt').value='';
+      await loadHealth();
+    }
+
+    async function loadHealth(){
+      // BP
+      const bp = await App.api('/api/metrics?kind=bp&limit=60');
+      drawBPChart(bp);
+      // Sugar
+      const sugars = await App.api('/api/metrics?kind=sugar&limit=1');
+      drawSugarDonut(sugars.length ? sugars[sugars.length-1] : null);
+    }
+
+    // --- Charts (vanilla)
+    function drawBPChart(rows){
+      const c = document.getElementById('bpChart');
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0,0,W,H);
+      if(!rows || !rows.length){
+        ctx.fillStyle = '#cbd5e1'; ctx.fillText('No BP data yet', 10, 20); return;
+      }
+      // map data
+      const sys = rows.map(r=>Number(r.systolic||0));
+      const dia = rows.map(r=>Number(r.diastolic||0));
+      const minY = Math.min(Math.min(...dia), 50);
+      const maxY = Math.max(Math.max(...sys), 200);
+      const pad = 28;
+      // grid
+      ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
+      for(let i=0;i<5;i++){ const y = pad + (H-2*pad)*i/4; ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke(); }
+      // scale helper
+      const x = i => pad + (W-2*pad) * (i/(rows.length-1 || 1));
+      const y = v => H-pad - (H-2*pad)*( (v-minY) / (maxY-minY || 1) );
+      // draw line
+      function line(vals, color){
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+        vals.forEach((v,i)=>{ const xi=x(i), yi=y(v); if(i===0) ctx.moveTo(xi,yi); else ctx.lineTo(xi,yi); });
+        ctx.stroke();
+      }
+      line(sys, '#f59e0b'); // amber
+      line(dia, '#22c55e'); // green
+      // legend
+      ctx.fillStyle = '#f8fafc'; ctx.font = '12px sans-serif';
+      ctx.fillText('Systolic', pad, pad-8);
+      ctx.fillStyle = '#cbd5e1'; ctx.fillText('Diastolic', pad+70, pad-8);
+    }
+
+    function drawSugarDonut(last){
+      const arc = document.getElementById('sugarArc');
+      const txt = document.getElementById('sugarText');
+      const info = document.getElementById('sugarInfo');
+      const when = document.getElementById('sugarWhen');
+      if(!last){ arc.setAttribute('stroke-dasharray','0 440'); txt.textContent='--'; info.textContent='--'; when.textContent='—'; return; }
+      const val = Number(last.sugar||0);
+      // scale 60–240 mg/dL → 0–1
+      const min=60, max=240, pct = Math.max(0, Math.min(1, (val-min)/(max-min)));
+      const C = 2*Math.PI*70; // circumference
+      const dash = Math.max(6, Math.round(C * pct));
+      arc.setAttribute('stroke-dasharray', `${dash} ${Math.round(C-dash)}`);
+      // Color hint
+      const col = val<70 ? '#fb7185' : val<=140 ? '#22c55e' : '#f59e0b';
+      arc.setAttribute('stroke', col);
+      txt.textContent = `${val}`;
+      info.textContent = `${val} mg/dL`;
+      when.textContent = new Date(last.readingAt).toLocaleString();
+    }
+  </script>
+
+  <script>
+    renderBottomNav();
+  </script>
+</body>
+</html>

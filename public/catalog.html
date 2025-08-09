@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Medicine Corner</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+       <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+  <div class="container">
+    <!-- ONE search bar only -->
+    <div class="card">
+      <label for="search">Search by medicine name</label>
+      <input id="search" placeholder="Type a name, e.g., paracetamol" />
+    </div>
+
+    <div class="card">
+      <h2>Medicine Corner</h2>
+      <div id="list" class="list"></div>
+
+      <!-- pagination controls -->
+      <div class="mt-12" style="text-align:center;">
+        <button id="prevBtn" disabled>« Prev</button>
+        <span id="pageInfo" class="mx-4"></span>
+        <button id="nextBtn" disabled>Next »</button>
+      </div>
+
+      <div class="mt-12">
+        <button class="secondary" onclick="enablePush()">Enable Notifications</button>
+        <span id="pushMsg" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>© Medicine Reminder</footer>
+
+  <script src="/push.js"></script>
+  <script>
+    let ALL_ITEMS = [];
+    let currentPage = 1;
+    const pageSize = 15;
+    let totalPages = 1;
+
+    // Fetch everything once
+    async function loadAll() {
+      const list = document.getElementById('list');
+      list.innerHTML = '<p class="muted">Loading…</p>';
+      try {
+        const res = await fetch('/api/catalog');
+        ALL_ITEMS = await res.json();
+        totalPages = Math.ceil(ALL_ITEMS.length / pageSize);
+        renderPage(1);
+      } catch (e) {
+        list.innerHTML = '<p class="muted">Error loading items: ' + e.message + '</p>';
+      }
+    }
+
+    // Render a slice of ALL_ITEMS
+    function renderPage(page) {
+      currentPage = page;
+      const start = (page - 1) * pageSize;
+      const slice = ALL_ITEMS.slice(start, start + pageSize);
+      renderList(slice);
+      updatePager();
+    }
+
+    // Render helper (unchanged)
+    function renderList(items) {
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+      items.forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `
+          <img src="${it.photoUrl || '/placeholder.png'}" alt="photo"/>
+          <div class="title">${it.name}</div>
+          <div>৳ ${it.priceBdt}</div>
+          <div class="mt-12">
+            <button onclick="Cart.add({name: ${JSON.stringify(it.name)}, priceBdt: ${Number(it.priceBdt)||0}})">Add to Cart</button>
+            <button class="secondary"
+              onclick="Cart.add({name: ${JSON.stringify(it.name)}, priceBdt: ${Number(it.priceBdt)||0}}); location.href='/cart.html'">
+              Buy
+            </button>
+          </div>`;
+        list.appendChild(div);
+      });
+      if (items.length === 0) {
+        list.innerHTML = '<p class="muted">No medicines found.</p>';
+      }
+    }
+
+    // Update Prev/Next buttons + page info
+    function updatePager() {
+      document.getElementById('prevBtn').disabled = currentPage <= 1;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+      document.getElementById('pageInfo').textContent =
+        `Page ${currentPage} of ${totalPages}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Search filter
+      document.getElementById('search').addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase();
+        // re-filter all items, reset to page 1
+        const filtered = q
+          ? ALL_ITEMS.filter(it => it.name.toLowerCase().includes(q))
+          : ALL_ITEMS.slice();
+        totalPages = Math.ceil(filtered.length / pageSize) || 1;
+        // override ALL_ITEMS for filtered view
+        const oldAll = ALL_ITEMS;
+        ALL_ITEMS = filtered;
+        renderPage(1);
+        ALL_ITEMS = oldAll; // retain full list for unfiltered paging
+      });
+
+      // Prev/Next handlers
+      document.getElementById('prevBtn').onclick = () => {
+        if (currentPage > 1) renderPage(currentPage - 1);
+      };
+      document.getElementById('nextBtn').onclick = () => {
+        if (currentPage < totalPages) renderPage(currentPage + 1);
+      };
+
+      // Push enable (unchanged)
+      window.enablePush = async () => {
+        try { await askNotificationPermission(); document.getElementById('pushMsg').textContent = 'Notifications enabled ✔'; }
+        catch (e) { document.getElementById('pushMsg').textContent = e.message; }
+      };
+
+      // Initial load
+      loadAll();
+    });
+  </script>
+
+<script>
+    renderBottomNav();
+  </script>
+</body>
+</html>

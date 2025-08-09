@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin • Upload Medicine</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+       <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>New Catalog Item</h2>
+      <div class="form-row">
+        <div>
+          <label>Medicine name</label>
+          <input id="name" placeholder="e.g., Omeprazole 20 mg"/>
+        </div>
+        <div>
+          <label>Price (BDT)</label>
+          <input id="price" type="number" placeholder="e.g., 120" />
+        </div>
+      </div>
+      <div class="mt-12">
+        <label>Photo</label>
+        <input id="photo" type="file" accept="image/*" />
+      </div>
+      <div class="mt-12">
+        <button onclick="save()">Save</button>
+      </div>
+      <p id="msg" class="muted mt-12"></p>
+    <div class="card">
+  <h2>Manage Catalog</h2>
+  <div id="adminList" class="list"></div>
+</div>
+
+  </div>
+
+  <footer>© Med Reminder</footer>
+
+<script>
+  if(!App.token()) location.href='/index.html';
+  if(App.user()?.role!=='admin'){ alert('Admins only'); location.href='/dashboard.html'; }
+
+  async function save(){
+    const name = document.getElementById('name').value.trim();
+    const price = document.getElementById('price').value;
+    if(!name || !price){ msg.textContent='Enter name & price'; return; }
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('priceBdt', price);
+    const f = document.getElementById('photo').files[0];
+    if (f) fd.append('photo', f);
+    try{
+      await fetch('/api/catalog', { method:'POST', headers: { 'Authorization': 'Bearer ' + App.token() }, body: fd });
+      msg.textContent='Saved! Open Medicine Corner to see it.';
+      document.getElementById('name').value=''; document.getElementById('price').value=''; document.getElementById('photo').value=null;
+    }catch(e){ msg.textContent = e.message; }
+  }
+</script>
+<script>renderBottomNav();<script>
+  async function loadAdminList(){
+    const res = await fetch('/api/catalog');
+    const items = await res.json();
+    const list = document.getElementById('adminList');
+    list.innerHTML = '';
+    items.forEach(it => {
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = `
+        <img src="${it.photoUrl||'/placeholder.png'}" alt="photo"/>
+        <div class="title">${it.name}</div>
+        <div>৳ ${it.priceBdt}</div>
+        <div class="mt-12">
+          <button onclick='prefill(${JSON.stringify(it)})'>Edit</button>
+          <button class="secondary" onclick="delItem('${it._id}')">Delete</button>
+        </div>`;
+      list.appendChild(el);
+    });
+    if(items.length===0){ list.innerHTML='<p class="muted">No items yet.</p>'; }
+  }
+  function prefill(it){
+    document.getElementById('name').value = it.name;
+    document.getElementById('price').value = it.priceBdt;
+    const form = document.querySelector('.card input[type=file]#photo');
+    form.dataset.editId = it._id;
+    document.querySelector('.card button[onclick="save()"]').textContent = 'Update';
+    document.getElementById('msg').textContent = 'Editing: '+it.name;
+  }
+  async function delItem(id){
+    if(!confirm('Delete this item?')) return;
+    const res = await fetch('/api/catalog/'+id, { method:'DELETE', headers:{ 'Authorization':'Bearer '+App.token() } });
+    if(res.ok){ loadAdminList(); } else { alert('Delete failed'); }
+  }
+  // Monkey-patch save() to support update
+  const _origSave = save;
+  window.save = async () => {
+    const fileInput = document.getElementById('photo');
+    const editId = fileInput.dataset.editId;
+    if(!editId){ return _origSave(); }
+    const name = document.getElementById('name').value.trim();
+    const price = document.getElementById('price').value;
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('priceBdt', price);
+    const f = document.getElementById('photo').files[0];
+    if (f) fd.append('photo', f);
+    const res = await fetch('/api/catalog/'+editId, { method:'PUT', headers:{ 'Authorization':'Bearer '+App.token() }, body: fd });
+    if(res.ok){
+      document.getElementById('msg').textContent='Updated!';
+      fileInput.dataset.editId='';
+      document.querySelector('.card button[onclick="save()"]').textContent = 'Save';
+      document.getElementById('name').value=''; document.getElementById('price').value=''; document.getElementById('photo').value=null;
+      loadAdminList();
+    } else {
+      document.getElementById('msg').textContent='Update failed';
+    }
+  };
+  loadAdminList();
+</script>
+
+</script>
+</body>
+</html>

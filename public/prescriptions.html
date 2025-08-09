@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prescriptions</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <!-- ---------- top bar ---------- -->
+     <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- upload card -->
+    <div class="card">
+      <h2>Upload Prescription</h2>
+      <input id="file" type="file" accept="image/*,.pdf">
+      <input id="remark" class="mt-8" placeholder="optional note">
+      <button class="mt-8" onclick="upload()">Upload</button>
+      <span id="umsg" class="muted ml-8"></span>
+    </div>
+
+    <!-- list card -->
+    <div class="card">
+      <h2>My Prescriptions</h2>
+      <div id="plist" class="list"></div>
+    </div>
+  </div>
+
+  <footer>© Medicine Reminder</footer>
+
+<script>
+const $ = q => document.querySelector(q);
+
+/* ----- upload ----- */
+async function upload(){
+  const f = $('#file').files[0];
+  if(!f){ alert('Choose a file first'); return; }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('remark', $('#remark').value);
+
+  await fetch('/api/prescriptions', {
+    method:'POST',
+    headers:{ 'Authorization': 'Bearer '+App.token() },
+    body: fd
+  });
+
+  $('#umsg').textContent = 'Uploaded ✔';
+  $('#file').value = ''; $('#remark').value = '';
+  loadList();
+}
+
+/* ----- list ----- */
+async function loadList(){
+  const list = $('#plist');
+  list.innerHTML = '<p class="muted">Loading…</p>';
+  try{
+    const rows = await App.api('/api/prescriptions');
+    list.innerHTML = '';
+    rows.forEach(r=>{
+      list.innerHTML += `
+        <div class="item">
+          <a href="/uploads/${r.filename}" target="_blank">${r.original}</a>
+          <div class="muted">${new Date(r.uploadedAt).toLocaleString()}</div>
+          <div>${r.remark||''}</div>
+        </div>`;
+    });
+    if(!rows.length) list.innerHTML = '<p class="muted">No prescriptions yet.</p>';
+  }catch(e){
+    list.innerHTML = '<p class="muted">Error: '+e.message+'</p>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(!App.token()){ location.href='/index.html'; return; }
+  loadList();
+});
+</script>
+<script>
+    renderBottomNav();
+  </script>
+</body>
+</html>

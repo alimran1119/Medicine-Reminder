@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Profile</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+      <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>My Profile</h2>
+
+      <!-- Photo preview + upload -->
+      <div class="mt-6" style="text-align:center;">
+        <img id="photoPreview" src="/placeholder.png" alt="Profile Photo"
+             style="width:120px; height:120px; object-fit:cover; border-radius:50%;" />
+        <div class="mt-4">
+          <input id="photoInput" type="file" accept="image/*" />
+        </div>
+      </div>
+
+      <div class="form-row mt-12">
+        <div><label>Email</label><input id="email" disabled /></div>
+        <div><label>Name</label><input id="name" /></div>
+      </div>
+      <div class="form-row mt-12">
+        <div><label>Phone</label><input id="phone" /></div>
+        <div><label>Age</label><input id="age" type="number" /></div>
+      </div>
+
+      <div class="mt-12">
+        <button onclick="save()">Save Changes</button>
+        <span id="msg" class="muted ml-8"></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>© Medicine Reminder</footer>
+
+<script>
+  const $ = q => document.querySelector(q);
+
+  async function loadProfile() {
+    try {
+      const data = await App.api('/api/profile');
+      $('#email').value = data.email;
+      $('#name').value  = data.name;
+      $('#phone').value = data.phone;
+      $('#age').value   = data.age;
+      if (data.photo) $('#photoPreview').src = data.photo;
+    } catch (e) {
+      alert('Failed to load profile: ' + e.message);
+    }
+  }
+
+  async function save() {
+    const form = new FormData();
+    form.append('name',  $('#name').value.trim());
+    form.append('phone', $('#phone').value.trim());
+    form.append('age',   $('#age').value);
+    const file = $('#photoInput').files[0];
+    if (file) form.append('photo', file);
+
+    $('#msg').textContent = '';
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + App.token() },
+        body: form
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || res.status);
+      }
+      const updated = await res.json();
+      $('#msg').textContent = 'Saved ✔';
+      if (updated.photo) $('#photoPreview').src = updated.photo;
+    } catch (e) {
+      $('#msg').textContent = 'Error: ' + e.message;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!App.token()) location.href = '/index.html';
+    loadProfile();
+  });
+</script>
+<script>
+    renderBottomNav();
+  </script>
+</body>
+</html>

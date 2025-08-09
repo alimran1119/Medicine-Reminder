@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Add Reminder</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <!-- ---------- top bar ---------- -->
+    <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>Add Reminder</h2>
+
+      <div class="form-row">
+        <div>
+          <label>Medicine name</label>
+          <input id="name" placeholder="e.g., Paracetamol 500 mg">
+        </div>
+        <div>
+          <label>Dosage</label>
+          <input id="dose" placeholder="e.g., 1 tablet">
+        </div>
+      </div>
+
+      <div class="form-row mt-12">
+        <div>
+          <label>Date & time</label>
+          <input id="dt" type="datetime-local">
+        </div>
+        <div>
+          <label>Repeat</label>
+          <select id="rep">
+            <option value="0">One-time</option>
+            <option value="1">Daily</option>
+            <option value="2">Every 2 days</option>
+            <option value="7">Weekly</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-12">
+        <button onclick="save()">Save</button>
+        <span id="msg" class="muted ml-8"></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>© Medicine Reminder</footer>
+
+<script>
+const $ = q => document.querySelector(q);
+
+async function save(){
+  $('#msg').textContent = '';
+  if(!$('#name').value.trim() || !$('#dt').value){
+    $('#msg').textContent = 'Please fill all required fields';
+    return;
+  }
+  const body = {
+    name: $('#name').value.trim(),
+    dosage: $('#dose').value.trim(),
+    nextAt: new Date($('#dt').value).toISOString(),
+    repeatDays: Number($('#rep').value)
+  };
+  try{
+    await App.api('/api/meds', {
+      method:'POST',
+      body: JSON.stringify(body)
+    });
+    $('#msg').textContent = 'Saved ✔';
+    setTimeout(()=>location.href='/dashboard.html', 800);
+  }catch(e){
+    $('#msg').textContent = 'Error: '+e.message;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(!App.token()){ location.href='/index.html'; }
+});
+</script>
+<<script>
+    renderBottomNav();
+  </script>
+</body>
+</html>

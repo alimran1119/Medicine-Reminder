@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/medreminder
+      - JWT_SECRET=changeme
+      - VAPID_PUBLIC=
+      - VAPID_PRIVATE=
+      - SITE_URL=http://localhost:3000
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - mongo
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+volumes:
+  mongo_data:

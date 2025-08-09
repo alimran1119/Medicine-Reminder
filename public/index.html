@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Med Reminder — Login</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+        <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+    </div>
+  </nav>
+ 
+
+  <div class="container">
+    <div class="card">
+      <h2>Welcome back</h2>
+      <p class="muted">Log in or create a free account to manage reminders.</p>
+
+      <div class="form-row mt-12">
+        <div>
+          <label>Email</label>
+          <input id="email" placeholder="you@example.com" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="mt-12">
+        <button onclick="login()">Login</button>
+        <button class="secondary" onclick="register()">Create account</button>
+      </div>
+      <p id="msg" class="muted mt-12"></p>
+    </div>
+  </div>
+
+  <footer>© Medicine Reminder</footer>
+
+  <script>
+    if(App.token()) location.href='/dashboard.html';
+
+    async function login(){
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if(!email || !password){ msg.textContent='Enter email and password'; return; }
+      try{
+        const data = await App.api('/api/auth/login', { method:'POST', body: JSON.stringify({email, password}) });
+        App.setSession(data);
+        location.href = '/dashboard.html';
+      }catch(e){ msg.textContent = e.message; }
+    }
+    async function register(){
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if(!email || password.length<6){ msg.textContent='Use a valid email and 6+ char password'; return; }
+      try{
+        await App.api('/api/auth/register', { method:'POST', body: JSON.stringify({email, password}) });
+        msg.textContent='Registered. Now login.';
+      }catch(e){ msg.textContent = e.message; }
+    }
+  </script>
+ <script>
+    renderBottomNav();
+  </script>
+</body>
+</html>

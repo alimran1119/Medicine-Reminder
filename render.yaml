@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: med-reminder-web
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: VAPID_PUBLIC
+        sync: false
+      - key: VAPID_PRIVATE
+        sync: false
+      - key: SITE_URL
+        value: https://med-reminder-web.onrender.com
+    autoDeploy: true
