@@ -94,8 +94,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   loadList();
 });
 </script>
-<script>
-    renderBottomNav();
+  <script>
+    if (typeof renderBottomNav === 'function') renderBottomNav();
   </script>
 </body>
 </html>
