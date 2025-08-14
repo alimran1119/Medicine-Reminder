@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payment</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <div class="brand">Medicine Reminder</div>
+      <div class="links">
+        <a class="link" href="/index.html">Login</a>
+        <a class="link" href="/dashboard.html">Dashboard</a>
+        <a id="adminLink" class="link hidden" href="/admin.html">Admin</a>
+        <a class="link" href="/prescriptions.html">Prescription</a>
+        <a class="link" href="/reminder.html">Reminder</a>
+        <a class="link" href="/profile.html">Profile</a>
+        <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/cart.html">Cart</a>
+      </div>
+      <div class="spacer"></div>
+      <a class="btn" href="/index.html" onclick="App?.clearSession?.()">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>Payment Page</h2>
+
+      <div id="orderSummary"></div>
+
+      <h3 class="mt-16">Select Payment Method</h3>
+      <label>
+        <input type="radio" name="method" value="demo" checked /> Demo Payment
+      </label><br>
+      <label>
+        <input type="radio" name="method" value="cod" /> Cash on Delivery
+      </label><br>
+
+      <div class="mt-16">
+        <button onclick="processPayment()">Pay Now</button>
+        <button class="secondary" onclick="window.location.href='/cart.html'">Back to Cart</button>
+      </div>
+
+      <p class="muted mt-12">This is a demo payment. No real transactions will happen.</p>
+    </div>
+  </div>
+
+  <footer>© Medicine Reminder</footer>
+
+  <script src="/app.js"></script>
+  <script>
+    function bdAmount(n) {
+      const v = Number.parseFloat(n ?? 0);
+      return Number.isFinite(v) ? v.toFixed(2) : '0.00';
+    }
+
+    // Render order summary
+    function renderSummary() {
+      const items = Cart?.read?.() ?? [];
+      const summaryEl = document.getElementById('orderSummary');
+
+      if (items.length === 0) {
+        summaryEl.innerHTML = '<p class="muted">Your cart is empty.</p>';
+        return;
+      }
+
+      let total = 0;
+      let html = '<ul>';
+      items.forEach(it => {
+        const price = parseFloat(it.priceBdt) || 0;
+        const qty = parseInt(it.qty) || 1;
+        const line = price * qty;
+        total += line;
+        html += `<li>${it.name} x${qty} — ৳${bdAmount(line)}</li>`;
+      });
+      html += `</ul><strong>Total: ৳${bdAmount(total)}</strong>`;
+      summaryEl.innerHTML = html;
+    }
+
+    function processPayment() {
+      const method = document.querySelector('input[name="method"]:checked')?.value;
+
+      // Simulate payment
+      setTimeout(() => {
+        alert(`Payment Successful via ${method.toUpperCase()} ✅`);
+        Cart?.clear?.();
+        window.location.href = '/success.html';
+      }, 1000);
+    }
+
+    window.addEventListener('load', renderSummary);
+  </script>
+</body>
+</html>
