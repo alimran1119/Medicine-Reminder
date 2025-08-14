@@ -75,8 +75,8 @@
       }catch(e){ msg.textContent = e.message; }
     }
   </script>
- <script>
-    renderBottomNav();
+  <script>
+    if (typeof renderBottomNav === 'function') renderBottomNav();
   </script>
 </body>
 </html>
