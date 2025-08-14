@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cart</title>
   <link rel="stylesheet" href="/styles.css" />
-  <script defer src="/app.js"></script>
 </head>
 <body>
-          <nav>
+  <nav>
     <div class="container">
       <div class="brand">Medicine Reminder</div>
       <div class="links">
@@ -18,68 +17,151 @@
         <a class="link" href="/prescriptions.html">Prescription</a>
         <a class="link" href="/reminder.html">Reminder</a>
         <a class="link" href="/profile.html">Profile</a>
-         <a class="link" href="/catalog.html">Medicine Corner</a>
+        <a class="link" href="/catalog.html">Medicine Corner</a>
         <a class="link" href="/cart.html">Cart</a>
       </div>
       <div class="spacer"></div>
-      <a class="btn" href="/index.html" onclick="App.clearSession()">Logout</a>
+      <a class="btn" href="/index.html" onclick="App?.clearSession?.()">Logout</a>
     </div>
   </nav>
 
   <div class="container">
     <div class="card">
       <h2>Your Cart</h2>
+
       <div id="items" class="list"></div>
-      <div class="mt-12"><strong>Total: ৳ <span id="total">0</span></strong></div>
+
       <div class="mt-12">
-        <button onclick="checkout()">Checkout (Demo)</button>
+        <strong>Total: ৳ <span id="total">0.00</span></strong>
+      </div>
+
+      <div class="mt-12">
+        <button id="checkoutBtn" onclick="checkout()">Checkout (Demo)</button>
         <button class="secondary" onclick="Cart.clear(); render()">Clear</button>
       </div>
-      <p class="muted mt-12">This is a demo checkout (no payments). You can export a simple order summary.</p>
+
+      <p class="muted mt-12">
+        This is a demo checkout (no payments). You can export a simple order summary.
+      </p>
     </div>
   </div>
 
   <footer>© Medicine Reminder</footer>
 
-<script>
-  function render(){
-    const list = document.getElementById('items');
-    const totalEl = document.getElementById('total');
-    const items = Cart.read();
-    list.innerHTML='';
-    let total = 0;
-    items.forEach((it, i)=>{
-      total += Number(it.priceBdt||0);
-      const div = document.createElement('div');
-      div.className='item';
-      div.innerHTML = \'
-        <div class="title">\${it.name}</div>
-        <div>৳ \${it.priceBdt}</div>
-        <div class="mt-12">
-          <button onclick="removeItem(\${i})">Remove</button>
-        </div>\`;
-      list.appendChild(div);
-    });
-    if(items.length===0){ list.innerHTML='<p class="muted">Your cart is empty.</p>'; }
-    totalEl.textContent = total.toString();
-  }
-  function removeItem(i){ Cart.remove(i); render(); }
-  function checkout(){
-    const items = Cart.read();
-    if(items.length===0) return alert('Cart is empty');
-    const summary = items.map(it=> \`\${it.name} — ৳\${it.priceBdt}\`).join('\n');
-    const blob = new Blob([summary], {type:'text/plain'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'order-summary.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  render();
-</script>
-<script>
-    renderBottomNav();
+  <!-- Load shared app BEFORE page scripts -->
+  <script src="/app.js"></script>
+
+  <script>
+    function bdAmount(n){
+      const v = Number.parseFloat(n ?? 0);
+      return Number.isFinite(v) ? v.toFixed(2) : '0.00';
+    }
+
+    function render(){
+      const list = document.getElementById('items');
+      const totalEl = document.getElementById('total');
+      const checkoutBtn = document.getElementById('checkoutBtn');
+
+      const items = (Cart?.read?.() ?? []).slice();
+      list.innerHTML = '';
+
+      let total = 0;
+
+      if(items.length === 0){
+        list.innerHTML = '<p class="muted">Your cart is empty.</p>';
+        checkoutBtn.disabled = true;
+        totalEl.textContent = '0.00';
+        return;
+      }
+
+      checkoutBtn.disabled = false;
+
+      items.forEach((it, i) => {
+        const price = Number.parseFloat(it?.priceBdt ?? 0) || 0;
+        const qty   = Math.max(1, Number.parseInt(it?.qty ?? 1) || 1);
+        const line  = price * qty;
+        total += line;
+
+        const row = document.createElement('div');
+        row.className = 'item';
+
+        row.innerHTML = `
+          <div class="title"></div>
+          <div class="muted">৳ ${bdAmount(price)} each</div>
+
+          <div class="mt-8">
+            Qty:
+            <input type="number"
+                   min="1"
+                   value="${qty}"
+                   style="width:72px"
+                   oninput="updateQty(${i}, this.value)" />
+            &nbsp;|&nbsp;
+            Line: <strong>৳ ${bdAmount(line)}</strong>
+          </div>
+
+          <div class="mt-12">
+            <button onclick="removeItem(${i})">Remove</button>
+          </div>
+        `;
+
+        row.querySelector('.title').textContent = it?.name ?? 'Unnamed item';
+        list.appendChild(row);
+      });
+
+      totalEl.textContent = bdAmount(total);
+    }
+
+    function updateQty(index, val){
+      Cart?.setQty?.(index, val);
+      render();
+    }
+
+    function removeItem(index){
+      Cart?.remove?.(index);
+      render();
+    }
+
+    function checkout(){
+      const items = Cart?.read?.() ?? [];
+      if(items.length === 0){
+        alert('Cart is empty');
+        return;
+      }
+
+      const lines = [];
+      let total = 0;
+
+      items.forEach(it => {
+        const name = it?.name ?? 'Unnamed item';
+        const price = Number.parseFloat(it?.priceBdt ?? 0) || 0;
+        const qty   = Math.max(1, Number.parseInt(it?.qty ?? 1) || 1);
+        const line  = price * qty;
+        total += line;
+        lines.push(`${name} x${qty} — ৳${bdAmount(price)} each (line: ৳${bdAmount(line)})`);
+      });
+
+      lines.push('----------------------------');
+      lines.push(`Total: ৳${bdAmount(total)}`);
+
+      const summary = lines.join('\n');
+      const blob = new Blob([summary], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'order-summary.txt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Wait until everything (including /app.js) is ready
+    window.addEventListener('load', render);
+  </script>
+
+  <script>
+    if (typeof renderBottomNav === 'function') renderBottomNav();
   </script>
 </body>
 </html>
