@@ -279,7 +279,7 @@
   </script>
 
   <script>
-    renderBottomNav();
+    if (typeof renderBottomNav === 'function') renderBottomNav();
   </script>
 </body>
 </html>
