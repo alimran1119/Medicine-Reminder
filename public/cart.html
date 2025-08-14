@@ -138,11 +138,11 @@
         const qty   = Math.max(1, Number.parseInt(it?.qty ?? 1) || 1);
         const line  = price * qty;
         total += line;
-        lines.push(`${name} x${qty} — ৳${bdAmount(price)} each (line: ৳${bdAmount(line)})`);
+        lines.push(${name} x${qty} — ৳${bdAmount(price)} each (line: ৳${bdAmount(line)}));
       });
 
       lines.push('----------------------------');
-      lines.push(`Total: ৳${bdAmount(total)}`);
+      lines.push(Total: ৳${bdAmount(total)});
 
       const summary = lines.join('\n');
       const blob = new Blob([summary], { type: 'text/plain' });
