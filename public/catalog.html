@@ -116,7 +116,7 @@
     function updatePager() {
       document.getElementById('prevBtn').disabled = currentPage <= 1;
       document.getElementById('nextBtn').disabled = currentPage >= totalPages;
-      document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('pageInfo').textContent = Page ${currentPage} of ${totalPages};
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -129,7 +129,7 @@
         renderList(filtered.slice(start, start + pageSize));
         document.getElementById('prevBtn').disabled = true;
         document.getElementById('nextBtn').disabled = totalPages <= 1;
-        document.getElementById('pageInfo').textContent = `Page 1 of ${totalPages}`;
+        document.getElementById('pageInfo').textContent = Page 1 of ${totalPages};
       });
 
       document.getElementById('prevBtn').onclick = () => currentPage > 1 && renderPage(currentPage - 1);
